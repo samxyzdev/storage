@@ -1,0 +1,1 @@
+ALTER TABLE "files" ALTER COLUMN "uniqueFileName" SET DATA TYPE varchar;

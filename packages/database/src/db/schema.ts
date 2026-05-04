@@ -76,7 +76,7 @@ export const filesTable = pgTable(
   "files",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    uniqueFileName: uuid("uniqueFileName").notNull().unique(),
+    uniqueFileName: varchar("uniqueFileName").notNull().unique(),
     fileName: varchar("fileName", { length: 255 }).notNull(),
     // fileSize as bigint. mode: 'number' Javascript me safe limit tak kaam karta hai
     fileSize: bigint("fileSize", { mode: "number" }).notNull(),
@@ -108,7 +108,7 @@ export const sessionTable = pgTable(
   "session",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    token: uuid("token").notNull(),
+    token: varchar("token").notNull().unique(),
     userId: uuid("userId")
       .references(() => usersTable.id, { onDelete: "cascade" })
       .notNull(),
