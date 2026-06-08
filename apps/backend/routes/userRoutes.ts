@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import {
   and,
   asc,
@@ -9,9 +9,10 @@ import {
   sessionTable,
   usersTable,
 } from "@repo/database";
-import { SigninSchema, SignupSchema } from "@repo/zod";
+import { set, SigninSchema, SignupSchema } from "@repo/zod";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import { checkAuth } from "../middleware/checkAuth";
 
 export const userRoutes: Router = Router();
 
@@ -21,21 +22,21 @@ userRoutes.post("/signup", async (req, res, next) => {
   const { success, data, error } = SignupSchema.safeParse(req.body);
   if (!success) {
     return res.status(400).json({
-      error: error.flatten().fieldErrors,
+      error,
     });
   }
   console.log("1");
 
   const { name, email, otp, password } = data;
 
-  const [createUser] = await db
+  const [findOtp] = await db
     .select()
     .from(otpTable)
     .where(eq(otpTable.email, email));
 
   console.log("2");
 
-  if (!createUser) {
+  if (!findOtp) {
     return res.status(400).json({
       message: "1 invalid otp",
     });
@@ -43,19 +44,23 @@ userRoutes.post("/signup", async (req, res, next) => {
 
   const currentTime = new Date();
 
-  if (currentTime > createUser.expiresAt) {
+  if (currentTime > findOtp.expiresAt) {
     return res.status(400).json({
       message: "otp is expired! please regenerate",
     });
   }
+
   console.log("3");
+
   const hashOtp = crypto.createHash("sha256").update(otp).digest("hex");
 
   const [isOtpExist] = await db
     .select()
     .from(otpTable)
     .where(and(eq(otpTable.email, email), eq(otpTable.hashOtp, hashOtp)));
+
   console.log("4");
+
   if (!isOtpExist) {
     return res.status(400).json({
       message: "invalid otp or email",
@@ -147,7 +152,7 @@ userRoutes.post("/signin", async (req, res) => {
 
   if (!isUserExist) {
     return res.status(400).json({
-      message: "user doesn't exist",
+      message: "user doesn't exist. please signup",
     });
   }
   console.log("signin 3");
@@ -210,7 +215,7 @@ userRoutes.post("/signin", async (req, res) => {
 
   res.cookie("sid", token, {
     httpOnly: true,
-    secure: true,
+    secure: false, // for https make true
     signed: true, // required for signedCookie .
     sameSite: "lax",
     expires: expiresAt,
@@ -219,5 +224,193 @@ userRoutes.post("/signin", async (req, res) => {
 
   return res.status(200).json({
     message: "User signed successfully",
+  });
+});
+
+const NameUpdateSchema = SignupSchema.pick({
+  name: true,
+});
+
+// update only name
+userRoutes.patch("/", checkAuth, async (req: Request, res: Response) => {
+  const userId = req.userId;
+  if (!userId) {
+    return res.status(400).json({
+      message: "please create account first",
+    });
+  }
+
+  const [isUserExist] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+
+  if (!isUserExist) {
+    return res.status(400).json({
+      message: "user doesn't exist. please signup",
+    });
+  }
+
+  const { success, data, error } = NameUpdateSchema.safeParse(req.body);
+  if (!success) {
+    return res.status(400).json({
+      error,
+    });
+  }
+
+  const { name } = data;
+
+  try {
+    await db
+      .update(usersTable)
+      .set({ name: name })
+      .where(eq(usersTable.id, userId));
+  } catch (error) {
+    return res.status(500).json({
+      error: "server error",
+    });
+  }
+  return res.status(300).json({
+    message: "user name updated successfully",
+  });
+});
+
+// iss route main email or otp aayegi.
+const EmailUpdateSchema = SignupSchema.pick({
+  email: true,
+  otp: true,
+});
+
+// update email by sending otp on the updated email
+userRoutes.patch("/", checkAuth, async (req: Request, res: Response) => {
+  const userId = req.userId;
+  if (!userId) {
+    return res.status(400).json({
+      message: "please create account first",
+    });
+  }
+
+  const [isUserExist] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+
+  if (!isUserExist) {
+    return res.status(400).json({
+      message: "user doesn't exist. please signup",
+    });
+  }
+
+  const { success, data, error } = EmailUpdateSchema.safeParse(req.body);
+  if (!success) {
+    return res.status(400).json({
+      error,
+    });
+  }
+
+  const { email, otp } = data;
+
+  const [isOtpExistWithThisEmail] = await db
+    .select()
+    .from(otpTable)
+    .where(eq(otpTable.email, email));
+
+  if (!isOtpExistWithThisEmail) {
+    return res.status(400).json({
+      message: "invalid otp",
+    });
+  }
+  const currentTime = new Date();
+  if (currentTime > isOtpExistWithThisEmail.expiresAt) {
+    return res.status(400).json({
+      message: "otp is expired! pelase regenerate",
+    });
+  }
+  const hashOtp = crypto.createHash("sha256").update(otp).digest("hex");
+  const [isOtpExist] = await db
+    .select()
+    .from(otpTable)
+    .where(and(eq(otpTable.email, email), eq(otpTable.hashOtp, hashOtp)));
+  if (!isOtpExist) {
+    return res.status(400).json({
+      message: "Invalid otp or email",
+    });
+  }
+  // deleteting otp afetr evryting goes right.
+  await db.delete(otpTable).where(eq(otpTable.email, email));
+  console.log("5");
+
+  // now i can update the email
+  await db
+    .update(usersTable)
+    .set({ email: email })
+    .where(eq(usersTable.id, userId));
+
+  return res.status(300).json({
+    message: "user name updated successfully",
+  });
+});
+
+// iss route main email or otp aayegi.
+const UpdatePasswordSchema = SignupSchema.pick({
+  password: true,
+}).extend({
+  oldPassword: SignupSchema.shape.password,
+});
+// update password
+// take existing password and update with new password
+userRoutes.patch("/", checkAuth, async (req: Request, res: Response) => {
+  const userId = req.userId;
+  if (!userId) {
+    return res.status(400).json({
+      message: "please create account first",
+    });
+  }
+
+  const [isUserExist] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+
+  if (!isUserExist) {
+    return res.status(400).json({
+      message: "user doesn't exist. please signup",
+    });
+  }
+
+  const { success, data, error } = UpdatePasswordSchema.safeParse(req.body);
+  if (!success) {
+    return res.status(400).json({
+      error,
+    });
+  }
+  const { oldPassword, password } = data;
+
+  const isOldPasswordValid = await bcrypt.compare(
+    oldPassword,
+    isUserExist.password,
+  );
+
+  if (!isOldPasswordValid) {
+    return res.status(400).json({
+      message: "password is not valide please enter correct password",
+    });
+  }
+
+  // crete hash for the new password
+  const newHashPassword = await bcrypt.hash(password, 10);
+  try {
+    await db
+      .update(usersTable)
+      .set({ password: newHashPassword })
+      .where(eq(usersTable.id, userId));
+  } catch (error) {
+    return res.status(500).json({
+      message: "Server error",
+    });
+  }
+
+  return res.status(300).json({
+    message: "password updated successfully",
   });
 });

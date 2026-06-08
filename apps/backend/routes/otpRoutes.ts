@@ -1,5 +1,5 @@
 import { and, db, eq, otpTable } from "@repo/database";
-import { SignupSchema } from "@repo/zod";
+import { SignupSchema, flattenError } from "@repo/zod";
 import { Router } from "express";
 import crypto from "node:crypto";
 
@@ -16,7 +16,7 @@ otpRoutes.post("/generate-otp", async (req, res, next) => {
 
   if (!success) {
     return res.status(400).json({
-      error: error.flatten().fieldErrors,
+      error: flattenError(error),
     });
   }
 
@@ -27,8 +27,7 @@ otpRoutes.post("/generate-otp", async (req, res, next) => {
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
 
   console.log("Genearet OTP" + randomOtp);
-  // sendEmail
-  // agar yahan se mujhe perfect message aata hai tabhi db main otp ko ahsh kakre save karunga wran nahi
+  // sendEmail, agar yahan se mujhe perfect message aata hai tabhi db main otp ko ahsh kakre save karunga wran nahi
   const hashOtp = crypto.createHash("sha256").update(randomOtp).digest("hex");
   console.log(`hash otp ${hashOtp}`);
 

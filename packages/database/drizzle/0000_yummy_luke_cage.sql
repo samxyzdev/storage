@@ -1,7 +1,7 @@
 CREATE TYPE "public"."user_role" AS ENUM('admin', 'user');--> statement-breakpoint
 CREATE TABLE "files" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"uniqueFileName" uuid NOT NULL,
+	"uniqueFileName" varchar NOT NULL,
 	"fileName" varchar(255) NOT NULL,
 	"fileSize" bigint NOT NULL,
 	"mimeType" varchar(255) NOT NULL,
@@ -34,11 +34,12 @@ CREATE TABLE "otp" (
 --> statement-breakpoint
 CREATE TABLE "session" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"token" uuid NOT NULL,
+	"token" varchar NOT NULL,
 	"userId" uuid NOT NULL,
 	"createdAt" timestamp with time zone DEFAULT now() NOT NULL,
 	"updatedAt" timestamp with time zone DEFAULT now() NOT NULL,
-	"expiresAt" timestamp with time zone NOT NULL
+	"expiresAt" timestamp with time zone NOT NULL,
+	CONSTRAINT "session_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
 CREATE TABLE "users" (

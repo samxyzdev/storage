@@ -7,6 +7,8 @@ export const checkAuth = async (
   res: Response,
   next: NextFunction,
 ) => {
+  console.dir(req.cookies);
+  console.dir(req.signedCookies);
   const { sid } = req.signedCookies;
   console.log(sid);
   if (!sid) {
@@ -45,7 +47,7 @@ export const checkAuth = async (
     });
   }
   req.userId = isSessionExist.userId;
-  req.rootFolderId = folder?.id;
+  req.rootFolderId = folder.id;
   next();
 };
 
