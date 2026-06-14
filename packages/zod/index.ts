@@ -13,7 +13,7 @@ export const SigninSchema = z.object({
 });
 
 export const FileSchema = z.object({
-  uniqueFileName: z.string().length(64),
+  uniqueFileName: z.string(),
   fileName: z.string().min(1, "Too short").max(25, "Too large"),
   fileSize: z.number(),
   mimeType: z.string(),
@@ -21,11 +21,9 @@ export const FileSchema = z.object({
 });
 
 export const FolderSchema = z.object({
-  uniqueFolderName: z.uuid,
+  uniqueFolderName: z.string(),
   folderName: z.string(),
-  fileSize: z.number(),
-  mimeType: z.string(),
-  folderId: z.string(),
+  parentId: z.string(),
 });
 
-export * from "zod";
+export * as z from "zod";

@@ -22,12 +22,13 @@ app.use("/api/v1/user", userRoutes);
 app.use("/api/v1/files", checkAuth, fileRoutes);
 app.use("/api/v1/folders", checkAuth, folderRoutes);
 
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error(err.message || err);
-  res.status(500).json({
-    error: "Internal server error",
-  });
-});
+// app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+//   console.log("Global middleware error");
+//   console.error(err.message || err);
+//   res.status(500).json({
+//     error: "Internal server error",
+//   });
+// });
 
 const server = app.listen(3001, () => {
   console.log("running or port 3001");

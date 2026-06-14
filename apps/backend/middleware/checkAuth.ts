@@ -7,6 +7,7 @@ export const checkAuth = async (
   res: Response,
   next: NextFunction,
 ) => {
+  console.log("from check Auth");
   console.dir(req.cookies);
   console.dir(req.signedCookies);
   const { sid } = req.signedCookies;
@@ -14,11 +15,12 @@ export const checkAuth = async (
   if (!sid) {
     return res.status(400).json({
       message: "checkAuth 1 Invalide session",
+      number: "32",
     });
   }
 
   const hashedToken = crypto.createHash("sha256").update(sid).digest("hex");
-  console.log("auth hash sid");
+  console.log("print hash token inside checkAuth");
   console.log(hashedToken);
 
   const [isSessionExist] = await db
@@ -29,6 +31,7 @@ export const checkAuth = async (
   if (!isSessionExist) {
     return res.status(400).json({
       message: "Please signin/signup",
+      number: "33",
     });
   }
   const [folder] = await db
@@ -44,29 +47,10 @@ export const checkAuth = async (
   if (!folder) {
     return res.status(400).json({
       message: "folder doesn't exist/ Please signup",
+      number: "34",
     });
   }
   req.userId = isSessionExist.userId;
   req.rootFolderId = folder.id;
   next();
 };
-
-// export const checkNotRegularUser = (
-//   req: Request,
-//   res: Response,
-//   next: NextFunction,
-// ) => {
-//   if (req.user.role !== "User") return next();
-//   res.status(403).json({
-//     error: "You can not access users",
-//   });
-// };
-
-// export const checkIsAdminUser = (
-//   req: Request,
-//   res: Response,
-//   next: NextFunction,
-// ) => {
-//   if (req.user.role === "Admin") return next();
-//   res.status(403).json();
-// };
