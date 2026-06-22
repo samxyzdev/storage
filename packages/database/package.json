@@ -8,7 +8,8 @@
   },
   "scripts": {
     "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate"
+    "migrate": "drizzle-kit migrate",
+    "studio": "drizzle-kit studio --port=3002"
   },
   "devDependencies": {
     "@types/bun": "latest",

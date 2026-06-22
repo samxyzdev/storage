@@ -11,6 +11,7 @@ import { extension, lookup } from "mime-types";
 import { FileSchema, SignupSchema, z } from "@repo/zod";
 import multer from "multer";
 import { unlink } from "node:fs/promises";
+import { CLIENT_RENEG_LIMIT } from "node:tls";
 
 // 1. Multer DiskStorage configure karo (Manual stream ki zaroorat nahi)
 const storage = multer.diskStorage({
@@ -28,7 +29,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-export const fileRoutes: Router = Router();
+export const   fileRoutes: Router = Router();
 // // 1. Sirf is route ke liye specific query
 // // agar express.d.ts main likhta to sabhi route kel iye mandoty ho jata.
 // // Request jo hai wo 4 cheeje leta hai.Request<RouteParams, RequestBody, RequestQuery ResponseBody,>
@@ -278,6 +279,10 @@ fileRoutes.get("/:uniqueFileName", async (req: Request, res: Response) => {
   const uniqueFileName = Array.isArray(rawFileName)
     ? rawFileName[0]
     : rawFileName;
+  console.log(uniqueFileName)
+  console.log(req.query)
+  console.log(req.query.action)
+  
   if (!uniqueFileName) {
     return res.status(400).json({
       error: "uniqueFileName doesn't exist",
@@ -303,17 +308,24 @@ fileRoutes.get("/:uniqueFileName", async (req: Request, res: Response) => {
     });
   }
 
+  const ext = extension(isFileExist.mimeType);
+  const filePath = path.join(process.cwd(),"storage",`${uniqueFileName}.${ext}`)
+  console.log(filePath)
   if (req.query.action === "downlaod") {
-    const ext = extension(isFileExist.mimeType);
     console.log("downlaod");
     console.log(uniqueFileName);
     res.download(
-      `./storage/${uniqueFileName}.${ext}`,
+      filePath,
       `${isFileExist.fileName}`,
     );
+  } else if (req.query.action === "preview") {
+    res.sendFile(filePath);
   } else {
-    res.sendFile(`./storage/${uniqueFileName}`);
+    return res.status(400).json({
+    message:"karna kya chahte ho"
+  })
   }
+  
 });
 
 // File Rename.
@@ -370,6 +382,7 @@ fileRoutes.delete("/:fileId", async (req: Request, res: Response) => {
       number: "51",
     });
   }
+  console.log("delete 1")
 
   const rawFileId = req.params.fileId;
   const fileId = Array.isArray(rawFileId) ? rawFileId[0] : rawFileId;
@@ -379,22 +392,35 @@ fileRoutes.delete("/:fileId", async (req: Request, res: Response) => {
       number: "50",
     });
   }
+  console.log(fileId)
 
   try {
-    const [filesData] = await db
+      const [filesData] = await db
       .select()
       .from(filesTable)
-      .where(and(eq(filesTable.userId, userId), eq(filesTable.id, fileId)));
+      .where(and(eq(filesTable.userId, userId), eq(filesTable.uniqueFileName, fileId)));
+
     if (!filesData) {
       return res.status(400).json({
         error: "No file exist",
         number: "52",
       });
     }
-    await unlink(`./storage/${filesData.uniqueFileName}`);
-    await db
-      .delete(filesTable)
-      .where(and(eq(filesTable.userId, userId), eq(filesTable.id, fileId)));
+    const ext = extension(filesData.mimeType);
+    const filePath = path.join(process.cwd(),"storage",`${filesData.uniqueFileName}.${ext}`)
+    await db.transaction(async (tx) => {
+        await unlink(filePath)
+      
+      const [isFileExist] = await tx.delete(filesTable).where(and(eq(filesTable.userId, userId), eq(filesTable.uniqueFileName, fileId))).returning({insertedId:filesTable.id});
+      
+      if (!isFileExist) {
+        throw new Error()
+      }
+      return res.status(200).json({
+        message:"File Delted Successfully"
+      })
+    })
+    
   } catch (error) {
     console.log(error);
     return res.status(400).json({

@@ -1,10 +1,8 @@
-import { and, db, eq, otpTable } from "@repo/database";
+import {  db,  otpTable } from "@repo/database";
 import { SignupSchema, z } from "@repo/zod";
 import { Router } from "express";
-import crypto from "node:crypto";
 import { generateOtp } from "../utilities/generateRandomOtp";
 import { hashFunction } from "../utilities/hashFuntion";
-import { nodeModuleNameResolver } from "typescript";
 import { sendEmail } from "../utilities/sendEmail";
 
 const GenerateOtpSchema = SignupSchema.pick({
@@ -16,6 +14,7 @@ export const otpRoutes: Router = Router();
 otpRoutes.post("/generate-otp", async (req, res, next) => {
   // email to chahiye.
   // send generated otp to maill
+  console.log("lk;dasjf;alksjf;lskajd")
   const { success, data, error } = GenerateOtpSchema.safeParse(req.body);
   if (!success) {
     return res.status(400).json({
